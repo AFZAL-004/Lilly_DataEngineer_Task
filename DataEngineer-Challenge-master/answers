@@ -1,65 +1,48 @@
-# Lilly Data Engineer Challenge – Answers
-### Submitted by Afzal
-
----
-
-## ⚽ Q1: Average Goals per Game (1900–2000)
-
-**SQL Query:**
-```sql
+Q1: Average goals per game (1900–2000)
+--------------------------------------
+SQL Query:
 SELECT AVG(home_score + away_score) AS avg_goals
 FROM results
 WHERE CAST(strftime('%Y', date) AS INTEGER) BETWEEN 1900 AND 2000;
+
 Explanation:
+Calculates the average total goals per match in the specified period. This helps understand scoring trends historically.
 
-Computes the average number of goals per game.
+---
 
-Filters matches played between 1900 and 2000.
-
-Useful for understanding historical scoring trends.
-
-🏆 Q2: Shootout Wins by Country (Alphabetical Order)
+Q2: Shootout wins by country
+-----------------------------
 SQL Query:
-
-sql
-Copy code
 SELECT winner AS country, COUNT(*) AS shootout_wins
 FROM shootouts
 GROUP BY winner
 ORDER BY winner ASC;
+
 Explanation:
+Counts how many times each country won a penalty shootout, sorted alphabetically.
 
-Counts the number of penalty shootout wins per country.
+---
 
-Groups results by winner and sorts alphabetically.
-
-Helps identify historically successful teams in shootouts.
-
-🔑 Q3: Create Match ID for Joining Tables
-Python Code:
-
-python
-Copy code
+Q3: Creating a reliable match ID for joins
+-------------------------------------------
+Python Approach:
+# For 'results'
 results['match_id'] = results['date'].astype(str) + '_' + results['home_team'] + '_' + results['away_team']
+
+# For 'goals'
 goals['match_id'] = goals['date'].astype(str) + '_' + goals['home_team'] + '_' + goals['away_team']
+
+# For 'shootouts'
 shootouts['match_id'] = shootouts['date'].astype(str) + '_' + shootouts['home_team'] + '_' + shootouts['away_team']
 
-results.to_sql('results', conn, if_exists='replace', index=False)
-goals.to_sql('goals', conn, if_exists='replace', index=False)
-shootouts.to_sql('shootouts', conn, if_exists='replace', index=False)
 Explanation:
+Generates a unique identifier for each match to reliably join results, goals, and shootouts tables.
 
-Creates a unique match_id for reliable joins between goals, results, and shootouts.
+---
 
-Key format: date_homeTeam_awayTeam.
-
-Ensures SQL joins are accurate across datasets.
-
-🥅 Q4: Teams That Won Penalty Shootout After 1-1 Draw
+Q4: Teams who won a penalty shootout after a 1-1 draw
+------------------------------------------------------
 SQL Query:
-
-sql
-Copy code
 SELECT
     T2.winner AS winning_team,
     T1.date,
@@ -70,19 +53,15 @@ FROM results T1
 INNER JOIN shootouts T2
 ON T1.match_id = T2.match_id
 WHERE T1.home_score = 1 AND T1.away_score = 1;
+
 Explanation:
+Identifies all matches ending 1-1 that went to a penalty shootout and lists the winning team.
 
-Identifies matches ending 1-1 that went to a penalty shootout.
+---
 
-Displays the winning team along with match details.
-
-Useful for analyzing performance in tight matches.
-
-⚡ Q5: Top Goal Scorer by Tournament (% of Total Goals)
+Q5: Top goal scorer by tournament with percentage of total goals
+-----------------------------------------------------------------
 SQL Query:
-
-sql
-Copy code
 WITH goals_with_tournament AS (
     SELECT g.scorer, r.tournament
     FROM goals g
@@ -101,7 +80,7 @@ player_goals AS (
 ),
 ranked AS (
     SELECT p.tournament, p.scorer, p.goals, t.total_goals,
-           ROUND((CAST(p.goals AS FLOAT) / t.total_goals) * 100, 2) AS pct_of_total,
+           ROUND( (CAST(p.goals AS FLOAT) / t.total_goals) * 100, 2) AS pct_of_total,
            RANK() OVER (PARTITION BY p.tournament ORDER BY p.goals DESC) AS rank
     FROM player_goals p
     JOIN tournament_goals t
@@ -111,56 +90,27 @@ SELECT tournament, scorer AS top_scorer, goals, pct_of_total
 FROM ranked
 WHERE rank = 1
 ORDER BY tournament;
+
 Explanation:
+Finds the top scorer per tournament and calculates their goals as a percentage of the total goals scored in that tournament.
 
-Finds the top goal scorer for each tournament.
+---
 
-Calculates the percentage of total tournament goals by that player.
-
-Uses CTEs to organize calculations step-by-step:
-
-goals_with_tournament – join goals and tournaments.
-
-tournament_goals – total goals per tournament.
-
-player_goals – goals per player per tournament.
-
-ranked – calculate percentage and rank players.
-
-🧹 Q6: Data Quality Checks and Cleaning
-Python Code:
-
-python
-Copy code
-# Copy goals table
+Optional Q6: Data quality checks and cleaning
+---------------------------------------------
+Python Approach:
+# Flag data issues
 goals_qc = goals.copy()
-
-# Add flag for data quality issues
 goals_qc['data_quality_flag'] = 0
-
-# Flag missing scorer
 goals_qc.loc[goals_qc['scorer'].isnull() | (goals_qc['scorer'].str.strip() == ''), 'data_quality_flag'] = 1
-
-# Flag invalid minutes
 goals_qc.loc[(goals_qc['minute'] < 0) | (goals_qc['minute'] > 120), 'data_quality_flag'] = 1
-
-# Flag missing team
 goals_qc.loc[goals_qc['team'].isnull() | (goals_qc['team'].str.strip() == ''), 'data_quality_flag'] = 1
 
 # Clean data
 goals_qc['scorer'].fillna('Unknown', inplace=True)
 goals_qc.loc[(goals_qc['minute'] < 0) | (goals_qc['minute'] > 120), 'minute'] = None
 goals_qc['team'].fillna('Unknown', inplace=True)
-
-# Reset flag
 goals_qc['data_quality_flag'] = 0
+
 Explanation:
-
-Flags records with missing or inconsistent data.
-
-Cleans missing scorer, invalid minute, and missing team values.
-
-Ensures the dataset is reliable for further analysis.
-
-pgsql
-Copy code
+Identifies and resolves missing or inconsistent values in the goals table to ensure accurate analysis.
