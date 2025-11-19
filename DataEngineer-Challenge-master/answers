@@ -6,6 +6,111 @@ FROM results
 WHERE CAST(strftime('%Y', date) AS INTEGER) BETWEEN 1900 AND 2000;
 
 Explanation:
-Calculates the average total goals per match in the specified period. 
+Calculates the average total goals per match in the specified period. This helps understand scoring trends historically.
 
+---
 
+Q2: Shootout wins by country
+-----------------------------
+SQL Query:
+SELECT winner AS country, COUNT(*) AS shootout_wins
+FROM shootouts
+GROUP BY winner
+ORDER BY winner ASC;
+
+Explanation:
+Counts how many times each country won a penalty shootout, sorted alphabetically.
+
+---
+
+Q3: Creating a reliable match ID for joins
+-------------------------------------------
+Python Approach:
+# For 'results'
+results['match_id'] = results['date'].astype(str) + '_' + results['home_team'] + '_' + results['away_team']
+
+# For 'goals'
+goals['match_id'] = goals['date'].astype(str) + '_' + goals['home_team'] + '_' + goals['away_team']
+
+# For 'shootouts'
+shootouts['match_id'] = shootouts['date'].astype(str) + '_' + shootouts['home_team'] + '_' + shootouts['away_team']
+
+Explanation:
+Generates a unique identifier for each match to reliably join results, goals, and shootouts tables.
+
+---
+
+Q4: Teams who won a penalty shootout after a 1-1 draw
+------------------------------------------------------
+SQL Query:
+SELECT
+    T2.winner AS winning_team,
+    T1.date,
+    T1.home_team,
+    T1.away_team,
+    T1.tournament
+FROM results T1
+INNER JOIN shootouts T2
+ON T1.match_id = T2.match_id
+WHERE T1.home_score = 1 AND T1.away_score = 1;
+
+Explanation:
+Identifies all matches ending 1-1 that went to a penalty shootout and lists the winning team.
+
+---
+
+Q5: Top goal scorer by tournament with percentage of total goals
+-----------------------------------------------------------------
+SQL Query:
+WITH goals_with_tournament AS (
+    SELECT g.scorer, r.tournament
+    FROM goals g
+    JOIN results r
+    ON g.match_id = r.match_id
+),
+tournament_goals AS (
+    SELECT tournament, COUNT(*) AS total_goals
+    FROM goals_with_tournament
+    GROUP BY tournament
+),
+player_goals AS (
+    SELECT tournament, scorer, COUNT(*) AS goals
+    FROM goals_with_tournament
+    GROUP BY tournament, scorer
+),
+ranked AS (
+    SELECT p.tournament, p.scorer, p.goals, t.total_goals,
+           ROUND( (CAST(p.goals AS FLOAT) / t.total_goals) * 100, 2) AS pct_of_total,
+           RANK() OVER (PARTITION BY p.tournament ORDER BY p.goals DESC) AS rank
+    FROM player_goals p
+    JOIN tournament_goals t
+    ON p.tournament = t.tournament
+)
+SELECT tournament, scorer AS top_scorer, goals, pct_of_total
+FROM ranked
+WHERE rank = 1
+ORDER BY tournament;
+
+Explanation:
+Finds the top scorer per tournament and calculates their goals as a percentage of the total goals scored in that tournament.
+
+---
+
+Optional Q6: Data quality checks and cleaning
+---------------------------------------------
+Python Approach:
+# Flag data issues
+goals_qc = goals.copy()
+goals_qc['data_quality_flag'] = 0
+goals_qc.loc[goals_qc['scorer'].isnull() | (goals_qc['scorer'].str.strip() == ''), 'data_quality_flag'] = 1
+goals_qc.loc[(goals_qc['minute'] < 0) | (goals_qc['minute'] > 120), 'data_quality_flag'] = 1
+goals_qc.loc[goals_qc['team'].isnull() | (goals_qc['team'].str.strip() == ''), 'data_quality_flag'] = 1
+
+# Clean data
+goals_qc['scorer'].fillna('Unknown', inplace=True)
+goals_qc.loc[(goals_qc['minute'] < 0) | (goals_qc['minute'] > 120), 'minute'] = None
+goals_qc['team'].fillna('Unknown', inplace=True)
+goals_qc['data_quality_flag'] = 0
+
+Explanation:
+Identifies and resolves missing or inconsistent values in the goals table to ensure accurate analysis.
