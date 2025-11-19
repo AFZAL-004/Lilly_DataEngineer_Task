@@ -1,1 +1,11 @@
+Q1: Average goals per game (1900–2000)
+--------------------------------------
+SQL Query:
+SELECT AVG(home_score + away_score) AS avg_goals
+FROM results
+WHERE CAST(strftime('%Y', date) AS INTEGER) BETWEEN 1900 AND 2000;
+
+Explanation:
+Calculates the average total goals per match in the specified period. 
+
 
