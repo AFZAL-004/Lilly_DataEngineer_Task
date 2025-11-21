@@ -62,5 +62,5 @@ The following CSV files were provided for the challenge:
 
 ## 🔗 Submission
 
-- The completed notebook (`Lilly_DataEngineer_Task.ipynb`) is included in this repository.  
+- The completed notebook (`lilly_Task.ipynb`) is included in this repository.  
 - All steps, queries, and results are clearly documented for review.  
